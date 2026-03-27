@@ -362,13 +362,19 @@ textarea { min-height: 120px; resize: vertical; }
   font-weight: 600;
   color: var(--text-primary);
 }
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 12px 0;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+}
 .result-content table {
   width: 100%;
+  min-width: 560px;
   border-collapse: collapse;
-  margin: 12px 0;
   font-size: 13px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  table-layout: auto;
 }
 .result-content thead th {
   background: var(--accent-blue);
@@ -378,11 +384,18 @@ textarea { min-height: 120px; resize: vertical; }
   padding: 8px 12px;
   font-size: 12.5px;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
 }
 .result-content tbody td {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-light);
   vertical-align: top;
+  white-space: nowrap;
+}
+.result-content tbody td:nth-child(2) {
+  white-space: normal;
+  min-width: 120px;
 }
 .result-content tbody tr:last-child td { border-bottom: none; }
 .result-content tbody tr:nth-child(even) {
@@ -883,17 +896,31 @@ async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
 }
 
 // ===== System Prompts =====
-const SYSTEM_REALPRICE = `台灣實價登錄查詢助手。搜尋該地址附近的成交數據，務必找到具體數字。
+const SYSTEM_REALPRICE = `你是台灣實價登錄查詢助手。搜尋該地址附近的成交數據，務必找到具體數字。
 搜尋順序：實價登錄→591→永慶/信義房屋。找不到同地址就提供同路段數據。
-用Markdown表格輸出：
-| 交易日期 | 地址 | 型態 | 總價(萬) | 單價(萬/坪) | 坪數 | 樓層 |
-最後附區域均價與趨勢摘要。表格每筆一行，用|分隔。`;
 
-const SYSTEM_AUCTION = `台灣法拍屋查詢助手。搜尋該地址附近的法拍案件，務必找到具體案件資料。
+【格式要求 - 嚴格遵守】
+必須用完整的Markdown表格輸出，每一行資料都要用 | 包圍，格式如下：
+
+| 交易日期 | 地址 | 型態 | 總價(萬) | 單價(萬/坪) | 坪數 | 樓層 |
+|---------|------|------|---------|------------|------|------|
+| 2024/05 | XX路XX號 | 公寓 | 1,200 | 55.3 | 21.7 | 3F |
+
+每筆資料必須是完整的一行，用 | 分隔每個欄位。絕對不要把每個欄位拆成獨立一行。
+最後附1-2句區域均價與趨勢摘要。`;
+
+const SYSTEM_AUCTION = `你是台灣法拍屋查詢助手。搜尋該地址附近的法拍案件，務必找到具體案件資料。
 搜尋順序：透明房訊sqlaw.com.tw→104法拍網→法務部行政執行署。找不到同地址就提供同區域案件。
-用Markdown表格輸出：
+
+【格式要求 - 嚴格遵守】
+必須用完整的Markdown表格輸出，每一行資料都要用 | 包圍，格式如下：
+
 | 法院 | 案號 | 拍次 | 拍賣日期 | 底價(萬) | 坪數 | 類型 |
-最後附區域法拍概況。表格每筆一行，用|分隔。`;
+|------|------|------|---------|---------|------|------|
+| 台北地院 | 114執X號 | 一拍 | 2025/04/15 | 800 | 25.3 | 公寓 |
+
+每筆資料必須是完整的一行，用 | 分隔每個欄位。絕對不要把每個欄位拆成獨立一行。
+若無具體案件，仍以表格呈現附近區域案件。最後附1-2句區域法拍概況。`;
 
 const SYSTEM_TRANSCRIPT = `台灣不動產謄本風險分析專家。分析謄本，回報：
 1.基本資訊：所有權人、地址、面積、型態、屋齡、樓層
@@ -1287,9 +1314,10 @@ function formatResultHtml(text) {
   let inTable = false;
   let inList = false;
   let listType = "";
+  let tableColCount = 0;
 
   function closePending() {
-    if (inTable) { html += "</tbody></table>"; inTable = false; }
+    if (inTable) { html += "</tbody></table></div>"; inTable = false; tableColCount = 0; }
     if (inList) { html += listType === "ol" ? "</ol>" : "</ul>"; inList = false; }
   }
 
@@ -1301,21 +1329,37 @@ function formatResultHtml(text) {
     if (/^-{1,2}$/.test(trimmed)) continue;
 
     // Table: lines with |
-    if (trimmed.includes("|") && trimmed.startsWith("|")) {
-      const cells = trimmed.split("|").filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map(c => c.trim());
+    if (trimmed.includes("|")) {
+      // Parse cells - handle both "|a|b|c|" and "a|b|c" formats
+      let cells;
+      if (trimmed.startsWith("|")) {
+        cells = trimmed.split("|").filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map(c => c.trim());
+      } else {
+        cells = trimmed.split("|").map(c => c.trim());
+      }
       // Skip separator lines like |---|---|
       if (cells.every(c => /^[-:]+$/.test(c))) continue;
+      // Skip if only 1 cell (not really a table)
+      if (cells.length < 2) {
+        if (inTable) { closePending(); }
+        html += `<p>${inlineFormat(trimmed)}</p>`;
+        continue;
+      }
       if (!inTable) {
         closePending();
-        html += '<table><thead><tr>' + cells.map(c => `<th>${escapeHtml(c)}</th>`).join("") + '</tr></thead><tbody>';
+        tableColCount = cells.length;
+        html += '<div class="table-wrap"><table><thead><tr>' + cells.map(c => `<th>${escapeHtml(c)}</th>`).join("") + '</tr></thead><tbody>';
         inTable = true;
       } else {
+        // Pad or trim cells to match header column count
+        while (cells.length < tableColCount) cells.push("");
+        if (cells.length > tableColCount) cells = cells.slice(0, tableColCount);
         html += '<tr>' + cells.map(c => `<td>${inlineFormat(c)}</td>`).join("") + '</tr>';
       }
       continue;
     }
 
-    if (inTable) { html += "</tbody></table>"; inTable = false; }
+    if (inTable) { closePending(); }
 
     // Headings
     if (trimmed.startsWith("## ")) {
