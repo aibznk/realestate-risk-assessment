@@ -1208,6 +1208,8 @@ function formatResultHtml(text) {
     const line = lines[i];
     const trimmed = line.trim();
     if (!trimmed) { closePending(); continue; }
+    // Skip lone dashes (AI artifacts)
+    if (/^-{1,2}$/.test(trimmed)) continue;
 
     // Table: lines with |
     if (trimmed.includes("|") && trimmed.startsWith("|")) {
