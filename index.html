@@ -914,31 +914,42 @@ async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
 }
 
 // ===== System Prompts =====
-const SYSTEM_REALPRICE = `你是台灣實價登錄查詢助手。搜尋該地址附近的成交數據，務必找到具體數字。
+const SYSTEM_REALPRICE = `你是台灣實價登錄查詢助手。搜尋該地址附近的成交數據。
 搜尋順序：實價登錄→591→永慶/信義房屋。找不到同地址就提供同路段數據。
 
-【格式要求 - 嚴格遵守】
-必須用完整的Markdown表格輸出，每一行資料都要用 | 包圍，格式如下：
+【輸出格式 - 非常重要，必須嚴格遵守】
+回覆只能包含：一段簡短說明 + 一個Markdown表格 + 一段簡短摘要。
+表格的每一筆資料必須在同一行，7個欄位都要填，缺的填「-」。
 
+正確範例（直接複製此格式）：
 | 交易日期 | 地址 | 型態 | 總價(萬) | 單價(萬/坪) | 坪數 | 樓層 |
-|---------|------|------|---------|------------|------|------|
-| 2024/05 | XX路XX號 | 公寓 | 1,200 | 55.3 | 21.7 | 3F |
+|----------|------|------|----------|-------------|------|------|
+| 2024/05 | 忠孝東路100號3樓 | 電梯大樓 | 2,500 | 85.3 | 29.3 | 3F/12F |
+| 2024/03 | 忠孝東路98號5樓 | 公寓 | 1,200 | 55.3 | 21.7 | 5F/5F |
 
-每筆資料必須是完整的一行，用 | 分隔每個欄位。絕對不要把每個欄位拆成獨立一行。
-最後附1-2句區域均價與趨勢摘要。`;
+錯誤格式（絕對禁止）：
+- 不可以每個值各佔一行
+- 不可以用「| 近期 |」這種不完整的行
+- 不可以把地址、型態、價格分開寫在不同行`;
 
-const SYSTEM_AUCTION = `你是台灣法拍屋查詢助手。搜尋該地址附近的法拍案件，務必找到具體案件資料。
+const SYSTEM_AUCTION = `你是台灣法拍屋查詢助手。搜尋該地址附近的法拍案件。
 搜尋順序：透明房訊sqlaw.com.tw→104法拍網→法務部行政執行署。找不到同地址就提供同區域案件。
 
-【格式要求 - 嚴格遵守】
-必須用完整的Markdown表格輸出，每一行資料都要用 | 包圍，格式如下：
+【輸出格式 - 非常重要，必須嚴格遵守】
+回覆只能包含：一段簡短說明 + 一個Markdown表格 + 一段簡短摘要。
+表格的每一筆資料必須在同一行，7個欄位都要填，缺的填「-」。
 
+正確範例（直接複製此格式）：
 | 法院 | 案號 | 拍次 | 拍賣日期 | 底價(萬) | 坪數 | 類型 |
-|------|------|------|---------|---------|------|------|
-| 台北地院 | 114執X號 | 一拍 | 2025/04/15 | 800 | 25.3 | 公寓 |
+|------|------|------|----------|----------|------|------|
+| 台北地院 | 114執字第123號 | 一拍 | 2025/04/15 | 800 | 25.3 | 公寓 |
+| 士林地院 | 114執字第456號 | 二拍 | 2025/05/01 | 650 | 18.7 | 華廈 |
 
-每筆資料必須是完整的一行，用 | 分隔每個欄位。絕對不要把每個欄位拆成獨立一行。
-若無具體案件，仍以表格呈現附近區域案件。最後附1-2句區域法拍概況。`;
+錯誤格式（絕對禁止）：
+- 不可以每個值各佔一行
+- 不可以用「| 近期 |」這種不完整的行
+- 不可以把法院、案號、底價分開寫在不同行
+若該地址完全無法拍案件，仍需說明並提供附近區域案件。`;
 
 const SYSTEM_TRANSCRIPT = `台灣不動產謄本風險分析專家。分析謄本，回報：
 1.基本資訊：所有權人、地址、面積、型態、屋齡、樓層
@@ -1359,22 +1370,31 @@ function formatResultHtml(text) {
       }
       // Skip separator lines like |---|---|
       if (cells.every(c => /^[-:]+$/.test(c))) continue;
-      // Skip if only 1 cell (not really a table)
-      if (cells.length < 2) {
-        if (inTable) { closePending(); }
-        html += `<p>${inlineFormat(trimmed)}</p>`;
+
+      if (inTable) {
+        // Already in a table: accept rows with 2+ cells, pad/trim to match header
+        if (cells.length >= 2) {
+          while (cells.length < tableColCount) cells.push("");
+          if (cells.length > tableColCount) cells = cells.slice(0, tableColCount);
+          html += '<tr>' + cells.map(c => `<td>${inlineFormat(c)}</td>`).join("") + '</tr>';
+        } else {
+          // Single cell line like "| 近期 |" — treat as text, close table
+          closePending();
+          html += `<p>${inlineFormat(trimmed.replace(/\|/g, "").trim())}</p>`;
+        }
         continue;
       }
-      if (!inTable) {
+
+      // Not in table yet: need at least 4 columns to start a new table header
+      // (prevents "華廈 | -" from being mistaken as table header)
+      if (cells.length >= 4) {
         closePending();
         tableColCount = cells.length;
         html += '<div class="table-wrap"><table><thead><tr>' + cells.map(c => `<th>${escapeHtml(c)}</th>`).join("") + '</tr></thead><tbody>';
         inTable = true;
       } else {
-        // Pad or trim cells to match header column count
-        while (cells.length < tableColCount) cells.push("");
-        if (cells.length > tableColCount) cells = cells.slice(0, tableColCount);
-        html += '<tr>' + cells.map(c => `<td>${inlineFormat(c)}</td>`).join("") + '</tr>';
+        // Too few columns to be a real table header, render as text
+        html += `<p>${inlineFormat(trimmed.replace(/\|/g, " ").trim())}</p>`;
       }
       continue;
     }
