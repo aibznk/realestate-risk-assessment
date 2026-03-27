@@ -767,15 +767,19 @@ function setStep(id, state) {
 // ===== API: Call Claude =====
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// model: "search" 用較便宜的 Haiku，"analysis" 用 Sonnet
 async function callClaudeRaw(systemPrompt, userContent, retries = 2, taskType = "search") {
-  const model = taskType === "analysis" ? "claude-sonnet-4-20250514" : "claude-sonnet-4-20250514";
+  const model = "claude-sonnet-4-20250514";
   const maxTokens = taskType === "analysis" ? 1500 : 800;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
+      // 90 秒 timeout（web search 可能較慢）
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           model: model,
           max_tokens: maxTokens,
@@ -784,6 +788,7 @@ async function callClaudeRaw(systemPrompt, userContent, retries = 2, taskType = 
           tools: [{ type: "web_search_20250305", name: "web_search" }]
         })
       });
+      clearTimeout(timeoutId);
       if (res.status === 429) {
         if (attempt < retries) {
           const wait = (attempt + 1) * 15; // 15s, 30s
@@ -807,6 +812,10 @@ async function callClaudeRaw(systemPrompt, userContent, retries = 2, taskType = 
       }
       return await res.json();
     } catch (e) {
+      if (e.name === "AbortError") {
+        if (attempt < retries) { console.log("Request timed out, retrying..."); continue; }
+        throw new Error("查詢超時，請稍後再試（搜尋時間過長）");
+      }
       if (e.message.includes("查詢") || e.message.includes("API") || e.message.includes("伺服器")) throw e;
       if (attempt < retries) { await sleep(5000); continue; }
       throw new Error("網路連線失敗，請檢查網路狀態後再試");
@@ -831,9 +840,12 @@ async function callClaude(systemPrompt, userContent, taskType = "search") {
 async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
   for (let attempt = 0; attempt <= 2; attempt++) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 1500,
@@ -847,6 +859,7 @@ async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
           }]
         })
       });
+      clearTimeout(timeoutId);
       if (res.status === 429) {
         if (attempt < 2) { await sleep((attempt + 1) * 15000); continue; }
         throw new Error("查詢過於頻繁，請稍候 30 秒後再試");
@@ -858,6 +871,10 @@ async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
       const data = await res.json();
       return extractTextFromResponse(data);
     } catch (e) {
+      if (e.name === "AbortError") {
+        if (attempt < 2) { continue; }
+        throw new Error("查詢超時，請稍後再試");
+      }
       if (e.message.includes("查詢") || e.message.includes("API")) throw e;
       if (attempt < 2) { await sleep(5000); continue; }
       throw new Error("網路連線失敗，請檢查網路狀態後再試");

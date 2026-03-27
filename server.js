@@ -1,4 +1,5 @@
 const http = require("http");
+const https = require("https");
 const fs = require("fs");
 const path = require("path");
 
@@ -12,11 +13,14 @@ const server = http.createServer(async (req, res) => {
     req.on("end", async () => {
       try {
         const parsed = JSON.parse(body);
-        delete parsed.apiKey; // remove if sent from old clients
+        delete parsed.apiKey;
 
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) {
-          res.writeHead(500, { "Content-Type": "application/json" });
+          res.writeHead(500, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
           res.end(JSON.stringify({ error: "伺服器未設定 ANTHROPIC_API_KEY 環境變數" }));
           return;
         }
@@ -31,29 +35,58 @@ const server = http.createServer(async (req, res) => {
             "Content-Type": "application/json",
             "Content-Length": Buffer.byteLength(postData),
             "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
+            "anthropic-version": "2025-01-01",
           },
+          timeout: 120000, // 120 second connection timeout
         };
 
-        const https = require("https");
         const apiReq = https.request(options, (apiRes) => {
-          res.writeHead(apiRes.statusCode, {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+          // Collect full response to avoid pipe issues
+          let responseData = "";
+          apiRes.on("data", (chunk) => (responseData += chunk));
+          apiRes.on("end", () => {
+            res.writeHead(apiRes.statusCode, {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            });
+            res.end(responseData);
           });
-          apiRes.pipe(res);
+        });
+
+        // Timeout handling
+        apiReq.on("timeout", () => {
+          apiReq.destroy();
+          if (!res.headersSent) {
+            res.writeHead(504, {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            });
+            res.end(JSON.stringify({ error: "API 回應超時，請重試" }));
+          }
         });
 
         apiReq.on("error", (e) => {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: e.message }));
+          console.error("API request error:", e.message);
+          if (!res.headersSent) {
+            res.writeHead(502, {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            });
+            res.end(JSON.stringify({ error: `API 連線錯誤: ${e.message}` }));
+          }
         });
 
         apiReq.write(postData);
         apiReq.end();
       } catch (e) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: e.message }));
+        console.error("Parse error:", e.message);
+        if (!res.headersSent) {
+          res.writeHead(400, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(JSON.stringify({ error: e.message }));
+        }
       }
     });
     return;
@@ -92,6 +125,10 @@ const server = http.createServer(async (req, res) => {
     res.end("Not Found");
   }
 });
+
+// Server-level timeout (2 minutes for long web searches)
+server.timeout = 120000;
+server.keepAliveTimeout = 120000;
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
