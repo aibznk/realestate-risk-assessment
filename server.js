@@ -12,12 +12,12 @@ const server = http.createServer(async (req, res) => {
     req.on("end", async () => {
       try {
         const parsed = JSON.parse(body);
-        const apiKey = parsed.apiKey;
-        delete parsed.apiKey;
+        delete parsed.apiKey; // remove if sent from old clients
 
+        const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "請設定 API Key" }));
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "伺服器未設定 ANTHROPIC_API_KEY 環境變數" }));
           return;
         }
 

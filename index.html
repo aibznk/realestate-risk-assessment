@@ -481,19 +481,6 @@ footer {
   </div>
 </header>
 
-<!-- ===== API Key Bar ===== -->
-<div class="container" style="padding-top:12px">
-  <div class="card" style="margin-bottom:0; padding:12px 16px;">
-    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-      <label style="font-size:13px; font-weight:600; white-space:nowrap;">🔑 API Key</label>
-      <input type="password" id="apiKeyInput" placeholder="輸入你的 Anthropic API Key (sk-ant-...)"
-        style="flex:1; min-width:200px; padding:8px 12px; border:1px solid var(--border-medium); border-radius:var(--radius-sm); font-size:13px; background:var(--bg-secondary); color:var(--text-primary);" />
-      <button class="btn btn-sm btn-secondary" onclick="saveApiKey()" style="white-space:nowrap;">儲存</button>
-      <span id="apiKeyStatus" style="font-size:12px; color:var(--text-tertiary);"></span>
-    </div>
-  </div>
-</div>
-
 <!-- ===== Main Content ===== -->
 <main class="container">
 
@@ -649,40 +636,12 @@ function setStep(id, state) {
   else dot.classList.remove("pulse");
 }
 
-// ===== API Key Management =====
-const API_KEY_STORAGE = "realestate_api_key";
-
-function getApiKey() {
-  return localStorage.getItem(API_KEY_STORAGE) || "";
-}
-
-function saveApiKey() {
-  const key = document.getElementById("apiKeyInput").value.trim();
-  if (!key) { alert("請輸入 API Key"); return; }
-  localStorage.setItem(API_KEY_STORAGE, key);
-  document.getElementById("apiKeyStatus").textContent = "✓ 已儲存";
-  document.getElementById("apiKeyInput").value = "";
-  document.getElementById("apiKeyInput").placeholder = "已儲存 (sk-ant-...*****)";
-  setTimeout(() => { document.getElementById("apiKeyStatus").textContent = ""; }, 2000);
-}
-
-function initApiKeyUI() {
-  const key = getApiKey();
-  if (key) {
-    document.getElementById("apiKeyInput").placeholder = "已儲存 (sk-ant-...*****)";
-  }
-}
-
 // ===== API: Call Claude =====
 async function callClaude(systemPrompt, userContent) {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("請先設定 Anthropic API Key（頁面頂部）");
-
   const res = await fetch("/api/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      apiKey,
       model: "claude-sonnet-4-20250514",
       max_tokens: 1000,
       system: systemPrompt,
@@ -702,14 +661,10 @@ async function callClaude(systemPrompt, userContent) {
 }
 
 async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("請先設定 Anthropic API Key（頁面頂部）");
-
   const res = await fetch("/api/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      apiKey,
       model: "claude-sonnet-4-20250514",
       max_tokens: 1000,
       system: systemPrompt,
@@ -1143,7 +1098,6 @@ function exportToSheet() {
 
 // Init on load
 updateBadge();
-initApiKeyUI();
 </script>
 </body>
 </html>
