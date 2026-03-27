@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>不動產風險評估系統</title>
+<style>
+/* ===== CSS Variables ===== */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f7f7f5;
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b6b6b;
+  --text-tertiary: #9b9b9b;
+  --border-light: rgba(0,0,0,0.08);
+  --border-medium: rgba(0,0,0,0.15);
+  --accent-blue: #2563eb;
+  --accent-blue-bg: #eff6ff;
+  --danger-red: #dc2626;
+  --danger-bg: #fef2f2;
+  --warning-amber: #d97706;
+  --warning-bg: #fffbeb;
+  --success-green: #16a34a;
+  --success-bg: #f0fdf4;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #2a2a2a;
+    --text-primary: #e5e5e5;
+    --text-secondary: #a3a3a3;
+    --text-tertiary: #737373;
+    --border-light: rgba(255,255,255,0.08);
+    --border-medium: rgba(255,255,255,0.15);
+    --accent-blue-bg: #1e2a3a;
+    --danger-bg: #2a1e1e;
+    --warning-bg: #2a2618;
+    --success-bg: #1e2a1e;
+  }
+}
+
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ===== Animations ===== */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.spin { animation: spin 0.8s linear infinite; }
+.pulse { animation: pulse 1.2s ease-in-out infinite; }
+.fade-in { animation: fadeIn 0.3s ease-out; }
+
+/* ===== Layout ===== */
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ===== Header ===== */
+header {
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-light);
+  padding: 24px 0 0;
+  text-align: center;
+}
+header .icon { font-size: 32px; margin-bottom: 8px; }
+header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+header .subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+
+/* ===== Tabs ===== */
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-top: 20px;
+  border-bottom: 1px solid var(--border-light);
+}
+.tab-btn {
+  flex: 1;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  position: relative;
+}
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+.tab-badge {
+  display: inline-block;
+  background: var(--accent-blue);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* ===== Panels ===== */
+.panel { display: none; padding: 20px 0 40px; }
+.panel.active { display: block; }
+
+main { padding-bottom: 20px; }
+
+/* ===== Card ===== */
+.card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===== Form Elements ===== */
+.input-group {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.input-group input[type="text"] { flex: 1; }
+
+input[type="text"], textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+input[type="text"]:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+textarea { min-height: 120px; resize: vertical; }
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent-blue); color: #fff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
+}
+.btn-secondary:hover { background: var(--border-light); }
+.btn-danger { background: var(--danger-red); color: #fff; }
+.btn-danger:hover { background: #b91c1c; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+/* ===== Upload Area ===== */
+.upload-area {
+  border: 2px dashed var(--border-medium);
+  border-radius: var(--radius-lg);
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 12px;
+}
+.upload-area:hover, .upload-area.dragover {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+}
+.upload-area .icon { font-size: 28px; margin-bottom: 8px; }
+.upload-area .label { font-size: 14px; color: var(--text-secondary); }
+.upload-area .hint { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+
+.file-info {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--accent-blue-bg);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.file-info.show { display: flex; }
+.file-info .file-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-info .file-size { color: var(--text-tertiary); }
+.file-info .file-type {
+  background: var(--accent-blue);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.file-info .remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-tertiary);
+  padding: 2px;
+}
+.file-info .remove-btn:hover { color: var(--danger-red); }
+
+.divider {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  margin: 12px 0;
+  position: relative;
+}
+.divider::before, .divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 20px);
+  height: 1px;
+  background: var(--border-light);
+}
+.divider::before { left: 0; }
+.divider::after { right: 0; }
+
+/* ===== Status Steps ===== */
+.status-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.status-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  transition: color 0.3s;
+}
+.status-step .dot {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.status-step.loading { color: var(--accent-blue); }
+.status-step.loading .dot { color: var(--accent-blue); }
+.status-step.done { color: var(--success-green); }
+.status-step.done .dot { color: var(--success-green); }
+.status-step.error { color: var(--danger-red); }
+.status-step.error .dot { color: var(--danger-red); }
+
+/* ===== Result Sections ===== */
+.result-section {
+  margin-top: 16px;
+  display: none;
+}
+.result-section.show { display: block; }
+.result-section .result-header {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.result-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ===== Risk Badges ===== */
+.risk-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.risk-badge.high { background: var(--danger-bg); color: var(--danger-red); }
+.risk-badge.medium { background: var(--warning-bg); color: var(--warning-amber); }
+.risk-badge.low { background: var(--success-bg); color: var(--success-green); }
+
+/* ===== History ===== */
+.history-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+.history-empty .icon { font-size: 40px; margin-bottom: 12px; }
+
+.history-item {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.history-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+.history-header .arrow {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.history-item.expanded .history-header .arrow { transform: rotate(90deg); }
+.history-header .addr {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-header .meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.history-header .type-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.type-tag.address { background: var(--accent-blue-bg); color: var(--accent-blue); }
+.type-tag.transcript { background: var(--warning-bg); color: var(--warning-amber); }
+.history-header .risk-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.history-detail {
+  display: none;
+  padding: 0 16px 16px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.history-item.expanded .history-detail { display: block; }
+.history-detail .section-label {
+  font-weight: 600;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.history-detail .section-content {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* ===== Footer ===== */
+footer {
+  text-align: center;
+  padding: 20px 0 32px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.8;
+}
+
+/* ===== Spinner ===== */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-light);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 720px) {
+  .container { padding: 0 12px; }
+  header h1 { font-size: 18px; }
+  .card { padding: 16px; }
+  .input-group { flex-direction: column; }
+  .input-group .btn { width: 100%; }
+  .history-header .meta { flex-direction: column; align-items: flex-end; gap: 4px; }
+}
+
+/* ===== Loading Overlay for results ===== */
+.loading-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<header>
+  <div class="container">
+    <div class="icon">🏠</div>
+    <h1>不動產風險評估系統</h1>
+    <p class="subtitle">實價登錄查詢 · 法拍資訊搜尋 · 謄本風險分析</p>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="search" onclick="switchTab('search')">📍 地址查詢</button>
+      <button class="tab-btn" data-tab="transcript" onclick="switchTab('transcript')">📄 謄本分析</button>
+      <button class="tab-btn" data-tab="history" onclick="switchTab('history')">📋 查詢紀錄<span class="tab-badge" id="historyBadge" style="display:none">0</span></button>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== Main Content ===== -->
+<main class="container">
+
+  <!-- Panel 1: Address Search -->
+  <div class="panel active" id="panel-search">
+    <div class="card">
+      <div class="card-title">🔍 輸入不動產地址</div>
+      <div class="input-group">
+        <input type="text" id="searchAddr" placeholder="例：台北市大安區忠孝東路四段100號" />
+        <button class="btn btn-primary" id="searchBtn" onclick="startSearch()">開始查詢</button>
+      </div>
+      <div class="status-steps" id="searchStatus" style="display:none">
+        <div class="status-step" id="step-realprice"><span class="dot">○</span> 實價登錄查詢</div>
+        <div class="status-step" id="step-auction"><span class="dot">○</span> 法拍資訊查詢</div>
+      </div>
+    </div>
+
+    <div class="result-section" id="result-realprice">
+      <div class="result-header">🏷️ 實價登錄結果</div>
+      <div class="result-content" id="content-realprice"></div>
+    </div>
+
+    <div class="result-section" id="result-auction">
+      <div class="result-header">⚖️ 法拍資訊結果</div>
+      <div class="result-content" id="content-auction"></div>
+    </div>
+  </div>
+
+  <!-- Panel 2: Transcript Analysis -->
+  <div class="panel" id="panel-transcript">
+    <div class="card">
+      <div class="card-title">📄 上傳或貼上謄本</div>
+
+      <div class="input-group" style="margin-bottom:12px">
+        <input type="text" id="transcriptAddr" placeholder="地址（選填，留空則自動從謄本提取）" />
+      </div>
+
+      <!-- Upload Area -->
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+        <div class="icon">📎</div>
+        <div class="label">點擊上傳或拖放檔案至此</div>
+        <div class="hint">支援 PDF、TXT 格式</div>
+      </div>
+      <input type="file" id="fileInput" accept=".pdf,.txt" style="display:none" />
+
+      <div class="file-info" id="fileInfo">
+        <span class="file-type" id="fileType">PDF</span>
+        <span class="file-name" id="fileName"></span>
+        <span class="file-size" id="fileSize"></span>
+        <button class="remove-btn" onclick="removeFile()" title="移除檔案">✕</button>
+      </div>
+
+      <div class="divider">或</div>
+
+      <textarea id="transcriptText" placeholder="直接貼上謄本文字內容..."></textarea>
+
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeTranscript()" style="width:100%">開始分析</button>
+      </div>
+
+      <div class="status-steps" id="transcriptStatus" style="display:none; margin-top:16px">
+        <div class="status-step" id="ts-step-analyze"><span class="dot">○</span> 謄本內容解析</div>
+        <div class="status-step" id="ts-step-address"><span class="dot">○</span> 地址自動提取</div>
+        <div class="status-step" id="ts-step-realprice"><span class="dot">○</span> 實價登錄查詢</div>
+        <div class="status-step" id="ts-step-auction"><span class="dot">○</span> 法拍資訊查詢</div>
+      </div>
+    </div>
+
+    <!-- Risk Badges -->
+    <div class="result-section" id="ts-result-risks">
+      <div class="result-header">⚠️ 風險標籤</div>
+      <div class="risk-badges" id="riskBadges"></div>
+    </div>
+
+    <!-- Transcript Analysis Result -->
+    <div class="result-section" id="ts-result-analysis">
+      <div class="result-header">📊 謄本分析報告</div>
+      <div class="result-content" id="ts-content-analysis"></div>
+    </div>
+
+    <!-- Real Price Result -->
+    <div class="result-section" id="ts-result-realprice">
+      <div class="result-header">🏷️ 實價登錄結果</div>
+      <div class="result-content" id="ts-content-realprice"></div>
+    </div>
+
+    <!-- Auction Result -->
+    <div class="result-section" id="ts-result-auction">
+      <div class="result-header">⚖️ 法拍資訊結果</div>
+      <div class="result-content" id="ts-content-auction"></div>
+    </div>
+  </div>
+
+  <!-- Panel 3: History -->
+  <div class="panel" id="panel-history">
+    <div class="history-actions" id="historyActions" style="display:none">
+      <button class="btn btn-secondary btn-sm" onclick="exportToSheet()">📤 儲存至 Google 試算表</button>
+      <button class="btn btn-danger btn-sm" onclick="clearHistory()">🗑️ 清除紀錄</button>
+    </div>
+    <div id="historyList"></div>
+    <div class="history-empty" id="historyEmpty">
+      <div class="icon">📭</div>
+      <div>尚無查詢紀錄</div>
+      <div style="margin-top:4px">使用「地址查詢」或「謄本分析」開始</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== Footer ===== -->
+<footer class="container">
+  資料來源：內政部實價登錄 · 司法院法拍公告 · 591 房屋交易 · 透明房訊<br>
+  本系統透過 AI 搜尋公開資料，結果僅供參考，不構成任何投資建議
+</footer>
+
+<script>
+// ===== Risk Tag Definitions =====
+const RISK_TAGS = {
+  mortgage:        { label: "抵押權",    level: "high",   icon: "🔴" },
+  seizure:         { label: "查封/假扣押", level: "high",   icon: "🔴" },
+  restriction:     { label: "限制登記",  level: "high",   icon: "🔴" },
+  lease:           { label: "租賃權",    level: "medium", icon: "🟠" },
+  trust:           { label: "信託",      level: "medium", icon: "🟠" },
+  easement:        { label: "地上權/地役權", level: "medium", icon: "🟠" },
+  lis_pendens:     { label: "預告登記",  level: "medium", icon: "🟠" },
+  multiple_owners: { label: "多人持分",  level: "low",    icon: "🟢" },
+  land_use:        { label: "使用分區",  level: "low",    icon: "🟢" },
+  age:             { label: "屋齡偏高",  level: "low",    icon: "🟢" },
+};
+
+const STORAGE_KEY = "realestate_risk_history";
+
+// ===== Tab Switching =====
+function switchTab(tabName) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+  document.querySelector(`.tab-btn[data-tab="${tabName}"]`).classList.add("active");
+  document.getElementById(`panel-${tabName}`).classList.add("active");
+  if (tabName === "history") renderHistory();
+}
+
+// ===== Status Step Helpers =====
+function setStep(id, state) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = "status-step " + state;
+  const dot = el.querySelector(".dot");
+  if (state === "loading") dot.textContent = "◌";
+  else if (state === "done") dot.textContent = "●";
+  else if (state === "error") dot.textContent = "✕";
+  else dot.textContent = "○";
+  if (state === "loading") dot.classList.add("pulse");
+  else dot.classList.remove("pulse");
+}
+
+// ===== API: Call Claude =====
+async function callClaude(systemPrompt, userContent) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userContent }],
+      tools: [{ type: "web_search_20250305", name: "web_search" }]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`API 錯誤 (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  return data.content
+    .filter(b => b.type === "text")
+    .map(b => b.text)
+    .join("\n");
+}
+
+async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
+          { type: "text", text: textPrompt }
+        ]
+      }]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`API 錯誤 (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  return data.content
+    .filter(b => b.type === "text")
+    .map(b => b.text)
+    .join("\n");
+}
+
+// ===== System Prompts =====
+const SYSTEM_REALPRICE = `你是台灣不動產實價登錄查詢助手。請搜尋內政部實價登錄、591房屋交易、永慶房屋、信義房屋等網站，找出該地址附近的實價登錄交易紀錄。
+
+請以表格或條列方式呈現：交易日期、地址、建物型態、總價(萬)、單價(萬/坪)、坪數、樓層。
+至少列出 3-5 筆最近的交易紀錄。若無資料請說明。`;
+
+const SYSTEM_AUCTION = `你是台灣法拍屋查詢助手。請搜尋司法院法拍公告(https://aomp109.judicial.gov.tw/)、透明房訊(https://www.sqlaw.com.tw/)等網站，找出該地址附近的法拍屋資訊。
+
+請以表格或條列方式呈現：法院、案號、拍次、拍賣日期、底價(萬)、坪數、備註。
+若無資料請說明。`;
+
+const SYSTEM_TRANSCRIPT = `你是台灣不動產謄本風險分析專家。請完整分析謄本，包含：
+1. 基本資訊摘要：所有權人、完整地址、面積、建物型態、屋齡、樓層
+2. 他項權利分析：抵押權(金額、債權人、設定日期)、地上權、地役權等
+3. 限制登記分析：查封、假扣押、假處分、預告登記等
+4. 其他注意事項：信託、租賃、共有狀態、使用分區
+
+【非常重要】從謄本中找出建物的完整地址（含縣市、區、路段、門牌號），
+回答第一行格式：ADDRESS:完整地址
+
+最後一行格式：RISKS:[tag1,tag2,...]
+可用標籤：mortgage, seizure, restriction, lease, trust, easement, lis_pendens, multiple_owners, land_use, age
+無風險寫：RISKS:[]`;
+
+// ===== Feature 1: Address Search =====
+async function searchRealPrice(address) {
+  return await callClaude(SYSTEM_REALPRICE, `請查詢此地址附近的實價登錄資料：${address}`);
+}
+
+async function searchAuction(address) {
+  return await callClaude(SYSTEM_AUCTION, `請查詢此地址附近的法拍屋資料：${address}`);
+}
+
+async function startSearch() {
+  const addr = document.getElementById("searchAddr").value.trim();
+  if (!addr) return;
+
+  const btn = document.getElementById("searchBtn");
+  btn.disabled = true;
+  btn.textContent = "查詢中...";
+
+  const statusEl = document.getElementById("searchStatus");
+  statusEl.style.display = "flex";
+  setStep("step-realprice", "loading");
+  setStep("step-auction", "loading");
+
+  // Hide previous results
+  document.getElementById("result-realprice").classList.remove("show");
+  document.getElementById("result-auction").classList.remove("show");
+
+  let realPriceResult = "", auctionResult = "";
+
+  try {
+    const [rp, au] = await Promise.allSettled([
+      searchRealPrice(addr).then(r => { setStep("step-realprice", "done"); return r; }).catch(e => { setStep("step-realprice", "error"); throw e; }),
+      searchAuction(addr).then(r => { setStep("step-auction", "done"); return r; }).catch(e => { setStep("step-auction", "error"); throw e; })
+    ]);
+
+    if (rp.status === "fulfilled") {
+      realPriceResult = rp.value;
+      document.getElementById("content-realprice").textContent = rp.value;
+      const el = document.getElementById("result-realprice");
+      el.classList.add("show");
+      el.classList.add("fade-in");
+    } else {
+      document.getElementById("content-realprice").textContent = "查詢失敗：" + rp.reason?.message;
+      document.getElementById("result-realprice").classList.add("show");
+    }
+
+    if (au.status === "fulfilled") {
+      auctionResult = au.value;
+      document.getElementById("content-auction").textContent = au.value;
+      const el = document.getElementById("result-auction");
+      el.classList.add("show");
+      el.classList.add("fade-in");
+    } else {
+      document.getElementById("content-auction").textContent = "查詢失敗：" + au.reason?.message;
+      document.getElementById("result-auction").classList.add("show");
+    }
+
+    // Save to history
+    const district = addr.match(/([\u4e00-\u9fff]{2,3}[市縣][\u4e00-\u9fff]{2,3}[區鄉鎮市])/)?.[1] || "未知區域";
+    addRecord({
+      type: "address",
+      address: addr,
+      district: district,
+      date: new Date().toLocaleDateString("zh-TW"),
+      realPrice: realPriceResult,
+      auction: auctionResult,
+      transcript: "",
+      risks: []
+    });
+
+  } catch (e) {
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "開始查詢";
+  }
+}
+
+// Enter key triggers search
+document.getElementById("searchAddr").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !document.getElementById("searchBtn").disabled) startSearch();
+});
+
+// ===== Feature 2: Transcript Analysis =====
+let uploadedFile = null;
+let uploadedBase64 = null;
+let uploadedText = null;
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = () => reject(new Error("讀取檔案失敗"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("讀取檔案失敗"));
+    reader.readAsText(file);
+  });
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const ext = file.name.split(".").pop().toLowerCase();
+  if (ext !== "pdf" && ext !== "txt") {
+    alert("僅支援 PDF 或 TXT 格式");
+    return;
+  }
+  uploadedFile = file;
+  document.getElementById("fileName").textContent = file.name;
+  document.getElementById("fileSize").textContent = (file.size / 1024).toFixed(1) + " KB";
+  document.getElementById("fileType").textContent = ext.toUpperCase();
+  document.getElementById("fileInfo").classList.add("show");
+  document.getElementById("uploadArea").style.display = "none";
+}
+
+function removeFile() {
+  uploadedFile = null;
+  uploadedBase64 = null;
+  uploadedText = null;
+  document.getElementById("fileInfo").classList.remove("show");
+  document.getElementById("uploadArea").style.display = "";
+  document.getElementById("fileInput").value = "";
+}
+
+// File input change
+document.getElementById("fileInput").addEventListener("change", (e) => {
+  handleFile(e.target.files[0]);
+});
+
+// Drag & drop
+const uploadArea = document.getElementById("uploadArea");
+uploadArea.addEventListener("dragover", (e) => { e.preventDefault(); uploadArea.classList.add("dragover"); });
+uploadArea.addEventListener("dragleave", () => uploadArea.classList.remove("dragover"));
+uploadArea.addEventListener("drop", (e) => {
+  e.preventDefault();
+  uploadArea.classList.remove("dragover");
+  handleFile(e.dataTransfer.files[0]);
+});
+
+async function analyzeTranscript() {
+  const manualAddress = document.getElementById("transcriptAddr").value.trim();
+  const pastedText = document.getElementById("transcriptText").value.trim();
+  const hasFile = !!uploadedFile;
+  const hasText = !!pastedText;
+
+  if (!hasFile && !hasText) {
+    alert("請上傳檔案或貼上謄本文字");
+    return;
+  }
+
+  const btn = document.getElementById("analyzeBtn");
+  btn.disabled = true;
+  btn.textContent = "分析中...";
+
+  const statusEl = document.getElementById("transcriptStatus");
+  statusEl.style.display = "flex";
+  setStep("ts-step-analyze", "loading");
+  setStep("ts-step-address", "");
+  setStep("ts-step-realprice", "");
+  setStep("ts-step-auction", "");
+
+  // Hide previous results
+  ["ts-result-risks","ts-result-analysis","ts-result-realprice","ts-result-auction"].forEach(id => {
+    document.getElementById(id).classList.remove("show");
+  });
+
+  try {
+    // Stage 1: Analyze transcript
+    let analysisResult;
+    if (hasFile) {
+      const ext = uploadedFile.name.split(".").pop().toLowerCase();
+      if (ext === "pdf") {
+        const base64 = await fileToBase64(uploadedFile);
+        analysisResult = await callClaudeWithPDF(SYSTEM_TRANSCRIPT, base64, "請分析這份不動產謄本的內容與風險。");
+      } else {
+        const text = await readFileAsText(uploadedFile);
+        analysisResult = await callClaude(SYSTEM_TRANSCRIPT, `請分析以下不動產謄本內容：\n\n${text}`);
+      }
+    } else {
+      analysisResult = await callClaude(SYSTEM_TRANSCRIPT, `請分析以下不動產謄本內容：\n\n${pastedText}`);
+    }
+    setStep("ts-step-analyze", "done");
+
+    // Stage 2: Extract address
+    setStep("ts-step-address", "loading");
+    const addrMatch = analysisResult.match(/ADDRESS[:：]\s*(.+)/);
+    const extractedAddr = addrMatch ? addrMatch[1].trim() : "";
+    const useAddr = manualAddress || extractedAddr;
+    setStep("ts-step-address", useAddr ? "done" : "error");
+
+    // Parse risks
+    const riskMatch = analysisResult.match(/RISKS:\[(.*?)\]/);
+    const risks = riskMatch ? riskMatch[1].split(",").map(s => s.trim()).filter(Boolean) : [];
+
+    // Clean analysis text
+    const cleanResult = analysisResult
+      .replace(/ADDRESS[:：]\s*.+\n?/, "")
+      .replace(/RISKS:\[.*?\]/, "")
+      .trim();
+
+    // Render risk badges
+    if (risks.length > 0) {
+      const badgesEl = document.getElementById("riskBadges");
+      badgesEl.innerHTML = risks.map(r => {
+        const tag = RISK_TAGS[r];
+        if (!tag) return "";
+        return `<span class="risk-badge ${tag.level}">${tag.icon} ${tag.label}</span>`;
+      }).join("");
+      document.getElementById("ts-result-risks").classList.add("show");
+      document.getElementById("ts-result-risks").classList.add("fade-in");
+    }
+
+    // Show analysis
+    document.getElementById("ts-content-analysis").textContent = cleanResult;
+    document.getElementById("ts-result-analysis").classList.add("show");
+    document.getElementById("ts-result-analysis").classList.add("fade-in");
+
+    // Stage 3 & 4: Search (parallel)
+    let realPriceResult = "", auctionResult = "";
+    if (useAddr) {
+      setStep("ts-step-realprice", "loading");
+      setStep("ts-step-auction", "loading");
+
+      const [rp, au] = await Promise.allSettled([
+        searchRealPrice(useAddr).then(r => { setStep("ts-step-realprice", "done"); return r; }).catch(e => { setStep("ts-step-realprice", "error"); throw e; }),
+        searchAuction(useAddr).then(r => { setStep("ts-step-auction", "done"); return r; }).catch(e => { setStep("ts-step-auction", "error"); throw e; })
+      ]);
+
+      if (rp.status === "fulfilled") {
+        realPriceResult = rp.value;
+        document.getElementById("ts-content-realprice").textContent = rp.value;
+        document.getElementById("ts-result-realprice").classList.add("show");
+        document.getElementById("ts-result-realprice").classList.add("fade-in");
+      } else {
+        document.getElementById("ts-content-realprice").textContent = "查詢失敗：" + rp.reason?.message;
+        document.getElementById("ts-result-realprice").classList.add("show");
+      }
+
+      if (au.status === "fulfilled") {
+        auctionResult = au.value;
+        document.getElementById("ts-content-auction").textContent = au.value;
+        document.getElementById("ts-result-auction").classList.add("show");
+        document.getElementById("ts-result-auction").classList.add("fade-in");
+      } else {
+        document.getElementById("ts-content-auction").textContent = "查詢失敗：" + au.reason?.message;
+        document.getElementById("ts-result-auction").classList.add("show");
+      }
+    } else {
+      setStep("ts-step-realprice", "error");
+      setStep("ts-step-auction", "error");
+    }
+
+    // Save to history
+    const district = (useAddr || "").match(/([\u4e00-\u9fff]{2,3}[市縣][\u4e00-\u9fff]{2,3}[區鄉鎮市])/)?.[1] || "未知區域";
+    addRecord({
+      type: "transcript",
+      address: useAddr || "未提取到地址",
+      district: district,
+      date: new Date().toLocaleDateString("zh-TW"),
+      realPrice: realPriceResult,
+      auction: auctionResult,
+      transcript: cleanResult,
+      risks: risks
+    });
+
+  } catch (e) {
+    console.error(e);
+    setStep("ts-step-analyze", "error");
+    alert("分析過程發生錯誤：" + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "開始分析";
+  }
+}
+
+// ===== Feature 3: History =====
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveHistory(history) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+function addRecord(record) {
+  const history = loadHistory();
+  history.unshift({ ...record, id: crypto.randomUUID(), timestamp: Date.now() });
+  saveHistory(history);
+  updateBadge();
+}
+
+function updateBadge() {
+  const count = loadHistory().length;
+  const badge = document.getElementById("historyBadge");
+  if (count > 0) {
+    badge.style.display = "inline-block";
+    badge.textContent = count;
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+function renderHistory() {
+  const history = loadHistory();
+  const listEl = document.getElementById("historyList");
+  const emptyEl = document.getElementById("historyEmpty");
+  const actionsEl = document.getElementById("historyActions");
+
+  if (history.length === 0) {
+    listEl.innerHTML = "";
+    emptyEl.style.display = "";
+    actionsEl.style.display = "none";
+    return;
+  }
+
+  emptyEl.style.display = "none";
+  actionsEl.style.display = "flex";
+
+  listEl.innerHTML = history.map(rec => {
+    const typeClass = rec.type === "address" ? "address" : "transcript";
+    const typeLabel = rec.type === "address" ? "地址查詢" : "謄本分析";
+    const riskCount = (rec.risks && rec.risks.length) || 0;
+    const riskHtml = riskCount > 0 ? `<span class="risk-count">⚠️ ${riskCount}</span>` : "";
+
+    let detailHtml = "";
+    if (rec.transcript) {
+      detailHtml += `<div class="section-label">📊 謄本分析</div><div class="section-content">${escapeHtml(rec.transcript)}</div>`;
+    }
+    if (rec.risks && rec.risks.length > 0) {
+      const badges = rec.risks.map(r => {
+        const tag = RISK_TAGS[r];
+        return tag ? `<span class="risk-badge ${tag.level}">${tag.icon} ${tag.label}</span>` : "";
+      }).join("");
+      detailHtml += `<div class="section-label">⚠️ 風險標籤</div><div class="risk-badges">${badges}</div>`;
+    }
+    if (rec.realPrice) {
+      detailHtml += `<div class="section-label">🏷️ 實價登錄</div><div class="section-content">${escapeHtml(rec.realPrice)}</div>`;
+    }
+    if (rec.auction) {
+      detailHtml += `<div class="section-label">⚖️ 法拍資訊</div><div class="section-content">${escapeHtml(rec.auction)}</div>`;
+    }
+
+    return `<div class="history-item" onclick="this.classList.toggle('expanded')">
+      <div class="history-header">
+        <span class="arrow">▶</span>
+        <span class="addr">${escapeHtml(rec.address)}</span>
+        <div class="meta">
+          ${riskHtml}
+          <span class="type-tag ${typeClass}">${typeLabel}</span>
+          <span>${rec.date}</span>
+        </div>
+      </div>
+      <div class="history-detail">${detailHtml}</div>
+    </div>`;
+  }).join("");
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+function clearHistory() {
+  if (!confirm("確定要清除所有查詢紀錄嗎？")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderHistory();
+  updateBadge();
+}
+
+function exportToSheet() {
+  const history = loadHistory();
+  if (history.length === 0) { alert("沒有紀錄可匯出"); return; }
+  window.sendPrompt?.(
+    `請將以下不動產風險評估紀錄整理後，依地區和時間分類，儲存到我的 Google 試算表。欄位：查詢日期、類型、地址、地區、實價登錄、法拍資訊、謄本分析、風險標籤。\n紀錄：${JSON.stringify(history)}`
+  );
+}
+
+// Init badge on load
+updateBadge();
+</script>
+</body>
+</html>
