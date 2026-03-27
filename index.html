@@ -62,6 +62,24 @@ body {
 .pulse { animation: pulse 1.2s ease-in-out infinite; }
 .fade-in { animation: fadeIn 0.3s ease-out; }
 
+/* ===== Toast Notification ===== */
+.export-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+  background: var(--bg-primary); border: 1px solid var(--border-medium);
+  border-radius: var(--radius-lg); padding: 16px 24px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px;
+  z-index: 9999; opacity: 0; transition: all 0.3s ease;
+  max-width: 440px;
+}
+.export-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.export-toast-icon { font-size: 28px; flex-shrink: 0; }
+.export-toast-text strong { display: block; color: var(--text-primary); margin-bottom: 4px; }
+.export-toast-text p { margin: 0; font-size: 13px; color: var(--text-secondary); }
+.export-toast-text kbd {
+  display: inline-block; background: var(--bg-secondary); border: 1px solid var(--border-medium);
+  border-radius: 4px; padding: 1px 6px; font-size: 12px; font-family: monospace;
+}
+
 /* ===== Layout ===== */
 .container {
   max-width: 720px;
@@ -686,7 +704,8 @@ footer {
   <!-- Panel 3: History -->
   <div class="panel" id="panel-history">
     <div class="history-actions" id="historyActions" style="display:none">
-      <button class="btn btn-secondary btn-sm" onclick="exportToSheet()">📤 儲存至 Google 試算表</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportToGoogleSheet()">📤 儲存至 Google 試算表</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportToCSV()">💾 下載 CSV</button>
       <button class="btn btn-danger btn-sm" onclick="clearHistory()">🗑️ 清除紀錄</button>
     </div>
     <div id="historyList"></div>
@@ -1367,12 +1386,90 @@ function clearHistory() {
   updateBadge();
 }
 
-function exportToSheet() {
+const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1d_viHMGybP7a3DOJKSSjjjiqcfQ8WnNpASzleTFsuOI/edit";
+
+function buildSheetData(history) {
+  const headers = ["查詢日期", "類型", "地址", "地區", "風險標籤", "實價登錄", "法拍資訊", "謄本分析"];
+  const rows = history.map(rec => {
+    const typeLabel = rec.type === "address" ? "地址查詢" : "謄本分析";
+    const riskLabels = (rec.risks || []).map(r => RISK_TAGS[r]?.label || r).join("、");
+    return [
+      rec.date || "",
+      typeLabel,
+      rec.address || "",
+      rec.district || "",
+      riskLabels,
+      (rec.realPrice || "").replace(/\n/g, " "),
+      (rec.auction || "").replace(/\n/g, " "),
+      (rec.transcript || "").replace(/\n/g, " ")
+    ];
+  });
+  return { headers, rows };
+}
+
+async function exportToGoogleSheet() {
   const history = loadHistory();
   if (history.length === 0) { alert("沒有紀錄可匯出"); return; }
-  window.sendPrompt?.(
-    `請將以下不動產風險評估紀錄整理後，依地區和時間分類，儲存到我的 Google 試算表。欄位：查詢日期、類型、地址、地區、實價登錄、法拍資訊、謄本分析、風險標籤。\n紀錄：${JSON.stringify(history)}`
-  );
+
+  const { headers, rows } = buildSheetData(history);
+  // 組合成 tab-separated 格式（可直接貼到 Google 試算表）
+  const tsv = [headers.join("\t"), ...rows.map(r => r.join("\t"))].join("\n");
+
+  try {
+    await navigator.clipboard.writeText(tsv);
+    // 顯示成功提示
+    const toast = document.createElement("div");
+    toast.className = "export-toast";
+    toast.innerHTML = `
+      <div class="export-toast-icon">✅</div>
+      <div class="export-toast-text">
+        <strong>已複製 ${history.length} 筆紀錄到剪貼簿！</strong>
+        <p>即將開啟 Google 試算表，請在空白儲存格按 <kbd>Ctrl+V</kbd> 貼上</p>
+      </div>
+    `;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("show"));
+
+    // 2 秒後開啟 Google 試算表
+    setTimeout(() => {
+      window.open(GOOGLE_SHEET_URL, "_blank");
+      setTimeout(() => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 300); }, 2000);
+    }, 2000);
+
+  } catch (e) {
+    // 剪貼簿 API 失敗時改用 fallback
+    const textArea = document.createElement("textarea");
+    textArea.value = tsv;
+    textArea.style.cssText = "position:fixed;top:-9999px";
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    textArea.remove();
+    alert("已複製紀錄到剪貼簿！請到 Google 試算表按 Ctrl+V 貼上。");
+    window.open(GOOGLE_SHEET_URL, "_blank");
+  }
+}
+
+function exportToCSV() {
+  const history = loadHistory();
+  if (history.length === 0) { alert("沒有紀錄可匯出"); return; }
+
+  const { headers, rows } = buildSheetData(history);
+  const csvEscape = (str) => {
+    if (!str) return "";
+    const s = String(str).replace(/"/g, '""');
+    return s.includes(",") || s.includes("\n") || s.includes('"') ? `"${s}"` : s;
+  };
+
+  const BOM = "\uFEFF";
+  const csv = BOM + headers.map(csvEscape).join(",") + "\n" + rows.map(r => r.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `不動產評估紀錄_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Init on load
