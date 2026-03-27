@@ -765,29 +765,54 @@ function setStep(id, state) {
 }
 
 // ===== API: Call Claude =====
-async function callClaude(systemPrompt, userContent) {
-  const res = await fetch("/api/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userContent }],
-      tools: [{ type: "web_search_20250305", name: "web_search" }]
-    })
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    if (res.status === 429) throw new Error("查詢過於頻繁，請稍候 30 秒後再試");
-    if (res.status === 401) throw new Error("API 金鑰無效，請聯繫管理員");
-    if (res.status >= 500) throw new Error("伺服器暫時無法回應，請稍後再試");
-    throw new Error(`查詢失敗 (${res.status})`);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function callClaudeRaw(systemPrompt, userContent, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userContent }],
+          tools: [{ type: "web_search_20250305", name: "web_search" }]
+        })
+      });
+      if (res.status === 429) {
+        if (attempt < retries) {
+          const wait = (attempt + 1) * 15; // 15s, 30s
+          console.log(`Rate limited, retrying in ${wait}s...`);
+          await sleep(wait * 1000);
+          continue;
+        }
+        throw new Error("查詢過於頻繁，請稍候 30 秒後再試");
+      }
+      if (res.status === 529) {
+        if (attempt < retries) {
+          await sleep(10000);
+          continue;
+        }
+        throw new Error("API 伺服器過載，請稍後再試");
+      }
+      if (!res.ok) {
+        if (res.status === 401) throw new Error("API 金鑰無效，請聯繫管理員");
+        if (res.status >= 500) throw new Error("伺服器暫時無法回應，請稍後再試");
+        throw new Error(`查詢失敗 (${res.status})`);
+      }
+      return await res.json();
+    } catch (e) {
+      if (e.message.includes("查詢") || e.message.includes("API") || e.message.includes("伺服器")) throw e;
+      if (attempt < retries) { await sleep(5000); continue; }
+      throw new Error("網路連線失敗，請檢查網路狀態後再試");
+    }
   }
-  const data = await res.json();
+}
+
+function extractTextFromResponse(data) {
   const textBlocks = data.content.filter(b => b.type === "text").map(b => b.text);
-  // Use only the last substantial text block (the final answer),
-  // skip intermediate "thinking" blocks between web searches
   if (textBlocks.length > 1) {
     const last = textBlocks[textBlocks.length - 1];
     if (last.length > 100) return last;
@@ -795,34 +820,46 @@ async function callClaude(systemPrompt, userContent) {
   return textBlocks.join("\n");
 }
 
+async function callClaude(systemPrompt, userContent) {
+  const data = await callClaudeRaw(systemPrompt, userContent);
+  return extractTextFromResponse(data);
+}
+
 async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
-  const res = await fetch("/api/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
-          { type: "text", text: textPrompt }
-        ]
-      }]
-    })
-  });
-  if (!res.ok) {
-    if (res.status === 429) throw new Error("查詢過於頻繁，請稍候 30 秒後再試");
-    if (res.status === 401) throw new Error("API 金鑰無效，請聯繫管理員");
-    if (res.status >= 500) throw new Error("伺服器暫時無法回應，請稍後再試");
-    throw new Error(`查詢失敗 (${res.status})`);
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
+              { type: "text", text: textPrompt }
+            ]
+          }]
+        })
+      });
+      if (res.status === 429) {
+        if (attempt < 2) { await sleep((attempt + 1) * 15000); continue; }
+        throw new Error("查詢過於頻繁，請稍候 30 秒後再試");
+      }
+      if (!res.ok) {
+        if (res.status === 401) throw new Error("API 金鑰無效，請聯繫管理員");
+        throw new Error(`查詢失敗 (${res.status})`);
+      }
+      const data = await res.json();
+      return extractTextFromResponse(data);
+    } catch (e) {
+      if (e.message.includes("查詢") || e.message.includes("API")) throw e;
+      if (attempt < 2) { await sleep(5000); continue; }
+      throw new Error("網路連線失敗，請檢查網路狀態後再試");
+    }
   }
-  const data = await res.json();
-  return data.content
-    .filter(b => b.type === "text")
-    .map(b => b.text)
-    .join("\n");
 }
 
 // ===== System Prompts =====
@@ -943,30 +980,33 @@ async function startSearch() {
   let realPriceResult = "", auctionResult = "";
 
   try {
-    const [rp, au] = await Promise.allSettled([
-      searchRealPrice(addr).then(r => { setStep("step-realprice", "done"); return r; }).catch(e => { setStep("step-realprice", "error"); throw e; }),
-      searchAuction(addr).then(r => { setStep("step-auction", "done"); return r; }).catch(e => { setStep("step-auction", "error"); throw e; })
-    ]);
-
-    if (rp.status === "fulfilled") {
-      realPriceResult = rp.value;
-      document.getElementById("content-realprice").innerHTML = formatResultHtml(rp.value);
+    // 依序執行避免 rate limit（兩個同時會超過 token 限額）
+    // 先查實價登錄
+    try {
+      realPriceResult = await searchRealPrice(addr);
+      setStep("step-realprice", "done");
+      document.getElementById("content-realprice").innerHTML = formatResultHtml(realPriceResult);
       const el = document.getElementById("result-realprice");
-      el.classList.add("show");
-      el.classList.add("fade-in");
-    } else {
-      document.getElementById("content-realprice").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(rp.reason?.message)}</p>`;
+      el.classList.add("show", "fade-in");
+    } catch (e) {
+      setStep("step-realprice", "error");
+      document.getElementById("content-realprice").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(e.message)}</p>`;
       document.getElementById("result-realprice").classList.add("show");
     }
 
-    if (au.status === "fulfilled") {
-      auctionResult = au.value;
-      document.getElementById("content-auction").innerHTML = formatResultHtml(au.value);
+    // 間隔 2 秒再查法拍，避免 rate limit
+    await sleep(2000);
+
+    // 再查法拍資訊
+    try {
+      auctionResult = await searchAuction(addr);
+      setStep("step-auction", "done");
+      document.getElementById("content-auction").innerHTML = formatResultHtml(auctionResult);
       const el = document.getElementById("result-auction");
-      el.classList.add("show");
-      el.classList.add("fade-in");
-    } else {
-      document.getElementById("content-auction").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(au.reason?.message)}</p>`;
+      el.classList.add("show", "fade-in");
+    } catch (e) {
+      setStep("step-auction", "error");
+      document.getElementById("content-auction").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(e.message)}</p>`;
       document.getElementById("result-auction").classList.add("show");
     }
 
@@ -1136,34 +1176,35 @@ async function analyzeTranscript() {
     document.getElementById("ts-result-analysis").classList.add("show");
     document.getElementById("ts-result-analysis").classList.add("fade-in");
 
-    // Stage 3 & 4: Search (parallel)
+    // Stage 3 & 4: Search (依序避免 rate limit)
     let realPriceResult = "", auctionResult = "";
     if (useAddr) {
       setStep("ts-step-realprice", "loading");
       setStep("ts-step-auction", "loading");
 
-      const [rp, au] = await Promise.allSettled([
-        searchRealPrice(useAddr).then(r => { setStep("ts-step-realprice", "done"); return r; }).catch(e => { setStep("ts-step-realprice", "error"); throw e; }),
-        searchAuction(useAddr).then(r => { setStep("ts-step-auction", "done"); return r; }).catch(e => { setStep("ts-step-auction", "error"); throw e; })
-      ]);
-
-      if (rp.status === "fulfilled") {
-        realPriceResult = rp.value;
-        document.getElementById("ts-content-realprice").innerHTML = formatResultHtml(rp.value);
-        document.getElementById("ts-result-realprice").classList.add("show");
-        document.getElementById("ts-result-realprice").classList.add("fade-in");
-      } else {
-        document.getElementById("ts-content-realprice").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(rp.reason?.message)}</p>`;
+      // 先查實價登錄
+      try {
+        realPriceResult = await searchRealPrice(useAddr);
+        setStep("ts-step-realprice", "done");
+        document.getElementById("ts-content-realprice").innerHTML = formatResultHtml(realPriceResult);
+        document.getElementById("ts-result-realprice").classList.add("show", "fade-in");
+      } catch (e) {
+        setStep("ts-step-realprice", "error");
+        document.getElementById("ts-content-realprice").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(e.message)}</p>`;
         document.getElementById("ts-result-realprice").classList.add("show");
       }
 
-      if (au.status === "fulfilled") {
-        auctionResult = au.value;
-        document.getElementById("ts-content-auction").innerHTML = formatResultHtml(au.value);
-        document.getElementById("ts-result-auction").classList.add("show");
-        document.getElementById("ts-result-auction").classList.add("fade-in");
-      } else {
-        document.getElementById("ts-content-auction").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(au.reason?.message)}</p>`;
+      await sleep(2000);
+
+      // 再查法拍資訊
+      try {
+        auctionResult = await searchAuction(useAddr);
+        setStep("ts-step-auction", "done");
+        document.getElementById("ts-content-auction").innerHTML = formatResultHtml(auctionResult);
+        document.getElementById("ts-result-auction").classList.add("show", "fade-in");
+      } catch (e) {
+        setStep("ts-step-auction", "error");
+        document.getElementById("ts-content-auction").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(e.message)}</p>`;
         document.getElementById("ts-result-auction").classList.add("show");
       }
     } else {
