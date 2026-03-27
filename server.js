@@ -35,7 +35,7 @@ const server = http.createServer(async (req, res) => {
             "Content-Type": "application/json",
             "Content-Length": Buffer.byteLength(postData),
             "x-api-key": apiKey,
-            "anthropic-version": "2025-01-01",
+            "anthropic-version": "2023-06-01",
           },
           timeout: 120000, // 120 second connection timeout
         };
