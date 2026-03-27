@@ -767,15 +767,18 @@ function setStep(id, state) {
 // ===== API: Call Claude =====
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function callClaudeRaw(systemPrompt, userContent, retries = 2) {
+// model: "search" 用較便宜的 Haiku，"analysis" 用 Sonnet
+async function callClaudeRaw(systemPrompt, userContent, retries = 2, taskType = "search") {
+  const model = taskType === "analysis" ? "claude-sonnet-4-20250514" : "claude-sonnet-4-20250514";
+  const maxTokens = taskType === "analysis" ? 1500 : 800;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 4096,
+          model: model,
+          max_tokens: maxTokens,
           system: systemPrompt,
           messages: [{ role: "user", content: userContent }],
           tools: [{ type: "web_search_20250305", name: "web_search" }]
@@ -820,8 +823,8 @@ function extractTextFromResponse(data) {
   return textBlocks.join("\n");
 }
 
-async function callClaude(systemPrompt, userContent) {
-  const data = await callClaudeRaw(systemPrompt, userContent);
+async function callClaude(systemPrompt, userContent, taskType = "search") {
+  const data = await callClaudeRaw(systemPrompt, userContent, 2, taskType);
   return extractTextFromResponse(data);
 }
 
@@ -833,7 +836,7 @@ async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 4096,
+          max_tokens: 1500,
           system: systemPrompt,
           messages: [{
             role: "user",
@@ -863,101 +866,36 @@ async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
 }
 
 // ===== System Prompts =====
-const SYSTEM_REALPRICE = `你是台灣不動產實價登錄查詢助手。
+const SYSTEM_REALPRICE = `台灣實價登錄查詢助手。搜尋該地址附近的成交數據，務必找到具體數字。
+搜尋順序：實價登錄→591→永慶/信義房屋。找不到同地址就提供同路段數據。
+用Markdown表格輸出：
+| 交易日期 | 地址 | 型態 | 總價(萬) | 單價(萬/坪) | 坪數 | 樓層 |
+最後附區域均價與趨勢摘要。表格每筆一行，用|分隔。`;
 
-【搜尋策略】請依序嘗試以下搜尋方式，直到找到具體交易數據：
-1. 搜尋「實價登錄 {地址路段名}」或「{路段名} 成交價」
-2. 搜尋「{社區名稱} 實價登錄」（如果地址屬於某社區）
-3. 搜尋「{區域} 房價 實價登錄 成交」
-4. 到 591 實價登錄 market.591.com.tw 搜尋該路段
-5. 搜尋永慶房屋、信義房屋、樂屋網的該路段成交資料
+const SYSTEM_AUCTION = `台灣法拍屋查詢助手。搜尋該地址附近的法拍案件，務必找到具體案件資料。
+搜尋順序：透明房訊sqlaw.com.tw→104法拍網→法務部行政執行署。找不到同地址就提供同區域案件。
+用Markdown表格輸出：
+| 法院 | 案號 | 拍次 | 拍賣日期 | 底價(萬) | 坪數 | 類型 |
+最後附區域法拍概況。表格每筆一行，用|分隔。`;
 
-【重要】你必須盡力找到具體的交易數字（成交價、單價、坪數），不要只回報「無法取得」。
-即使無法找到完全相同地址，也請提供同路段、同社區或同區域的實際成交數據。
+const SYSTEM_TRANSCRIPT = `台灣不動產謄本風險分析專家。分析謄本，回報：
+1.基本資訊：所有權人、地址、面積、型態、屋齡、樓層
+2.他項權利：抵押權(金額/債權人)、地上權、地役權
+3.限制登記：查封、假扣押、預告登記
+4.其他：信託、租賃、共有、使用分區
 
-【輸出格式】請用 Markdown 表格呈現：
-
-## {地址} 附近實價登錄
-
-| 交易日期 | 地址/社區 | 建物型態 | 總價(萬) | 單價(萬/坪) | 坪數 | 樓層 |
-|---------|---------|---------|---------|-----------|------|------|
-| ... | ... | ... | ... | ... | ... | ... |
-
-### 區域行情摘要
-- 該區域近期均價：**XX萬/坪**
-- 主要建物類型：...
-- 價格趨勢：...
-
-【格式要求】表格必須使用標準 Markdown 格式，每個欄位用 | 分隔，所有資料在同一行：
-正確範例：| 2024/12 | 忠孝東路100號 | 電梯大樓 | 3,580 | 98.5 | 36.3 | 12F/15F |
-錯誤範例：每個欄位各佔一行`;
-
-const SYSTEM_AUCTION = `你是台灣法拍屋查詢助手。
-
-【搜尋策略】司法院法拍網站無法直接搜尋，請改用以下方式：
-1. 搜尋「法拍 {縣市} {區} {路段名}」
-2. 搜尋「{路段名} 法拍屋」
-3. 到透明房訊 www.sqlaw.com.tw 搜尋「{區域} 法拍」
-4. 到 104法拍網 www.104woo.com.tw 搜尋該區域法拍物件
-5. 搜尋「{縣市}{區} 法拍屋 拍賣」取得近期法拍案件
-6. 搜尋法務部行政執行署拍賣公告 www.tpkonsale.moj.gov.tw
-7. 如果特定地址沒有法拍，搜尋同區域（同區、同路段）的法拍案件
-
-【重要】請盡力找到該區域實際的法拍案件資料（案號、底價、拍次等），
-不要只回報「查無資料」或列出網站清單。即使該地址本身沒有法拍，
-也請提供同區域近期的法拍案件作為參考。
-
-【輸出格式】請用 Markdown 格式呈現：
-
-## {區域} 法拍資訊
-
-### 該地址附近法拍案件
-（如有找到具體案件，用表格呈現）
-
-| 法院 | 案號 | 拍次 | 拍賣日期 | 底價(萬) | 坪數 | 物件類型 |
-|------|------|------|---------|---------|------|---------|
-| ... | ... | ... | ... | ... | ... | ... |
-
-### 區域法拍概況
-- 該區域近期法拍件數：...
-- 平均底價：...
-- 注意事項：...
-
-若確實無法拍案件，請明確說明並提供該區域的法拍市場概況。
-
-【格式要求】表格必須使用標準 Markdown 格式，每個欄位用 | 分隔，所有資料在同一行：
-正確範例：| 台北地院 | 大安區忠孝東路100號 | 1拍 | 115/05/08 | 19,008 | 45.97 | 店面 |
-錯誤範例：每個欄位各佔一行`;
-
-const SYSTEM_TRANSCRIPT = `你是台灣不動產謄本風險分析專家。請完整分析謄本，包含：
-1. 基本資訊摘要：所有權人、完整地址、面積、建物型態、屋齡、樓層
-2. 他項權利分析：抵押權(金額、債權人、設定日期)、地上權、地役權等
-3. 限制登記分析：查封、假扣押、假處分、預告登記等
-4. 其他注意事項：信託、租賃、共有狀態、使用分區
-
-【非常重要】從謄本中找出建物的完整地址（含縣市、區、路段、門牌號），
-回答第一行格式：ADDRESS:完整地址
-
-最後一行格式：RISKS:[tag1,tag2,...]
-可用標籤：mortgage, seizure, restriction, lease, trust, easement, lis_pendens, multiple_owners, land_use, age
-無風險寫：RISKS:[]`;
+第一行必須寫：ADDRESS:完整地址（含縣市區路段門牌號）
+最後一行必須寫：RISKS:[tag1,tag2]
+標籤：mortgage,seizure,restriction,lease,trust,easement,lis_pendens,multiple_owners,land_use,age
+無風險：RISKS:[]`;
 
 // ===== Feature 1: Address Search =====
 async function searchRealPrice(address) {
-  // Extract district info for broader search
-  const district = address.match(/([\u4e00-\u9fff]{2,3}[市縣][\u4e00-\u9fff]{2,3}[區鄉鎮市])/)?.[1] || "";
-  const road = address.match(/[區鄉鎮市](.*?[路街道巷])/)?.[1] || "";
-  return await callClaude(SYSTEM_REALPRICE,
-    `請查詢此地址附近的實價登錄資料：${address}\n\n地區：${district}\n路段關鍵字：${road}\n請務必搜尋到具體的成交價格數據。`
-  );
+  return await callClaude(SYSTEM_REALPRICE, `查詢：${address} 附近實價登錄`);
 }
 
 async function searchAuction(address) {
-  const district = address.match(/([\u4e00-\u9fff]{2,3}[市縣][\u4e00-\u9fff]{2,3}[區鄉鎮市])/)?.[1] || "";
-  const road = address.match(/[區鄉鎮市](.*?[路街道巷])/)?.[1] || "";
-  return await callClaude(SYSTEM_AUCTION,
-    `請查詢此地址附近的法拍屋資料：${address}\n\n地區：${district}\n路段關鍵字：${road}\n請搜尋該區域實際的法拍案件，包含案號、底價等具體資訊。`
-  );
+  return await callClaude(SYSTEM_AUCTION, `查詢：${address} 附近法拍案件`);
 }
 
 async function startSearch() {
@@ -1135,10 +1073,10 @@ async function analyzeTranscript() {
         analysisResult = await callClaudeWithPDF(SYSTEM_TRANSCRIPT, base64, "請分析這份不動產謄本的內容與風險。");
       } else {
         const text = await readFileAsText(uploadedFile);
-        analysisResult = await callClaude(SYSTEM_TRANSCRIPT, `請分析以下不動產謄本內容：\n\n${text}`);
+        analysisResult = await callClaude(SYSTEM_TRANSCRIPT, `分析此謄本：\n${text}`, "analysis");
       }
     } else {
-      analysisResult = await callClaude(SYSTEM_TRANSCRIPT, `請分析以下不動產謄本內容：\n\n${pastedText}`);
+      analysisResult = await callClaude(SYSTEM_TRANSCRIPT, `分析此謄本：\n${pastedText}`, "analysis");
     }
     setStep("ts-step-analyze", "done");
 
