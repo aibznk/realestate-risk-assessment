@@ -30,7 +30,7 @@ const server = http.createServer(async (req, res) => {
           headers: {
             "Content-Type": "application/json",
             "x-api-key": apiKey,
-            "anthropic-version": "2025-01-01",
+            "anthropic-version": "2023-06-01",
           },
         };
 
