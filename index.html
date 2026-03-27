@@ -643,7 +643,7 @@ async function callClaude(systemPrompt, userContent) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
+      max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
       tools: [{ type: "web_search_20250305", name: "web_search" }]
@@ -666,7 +666,7 @@ async function callClaudeWithPDF(systemPrompt, pdfBase64, textPrompt) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
+      max_tokens: 4096,
       system: systemPrompt,
       messages: [{
         role: "user",
