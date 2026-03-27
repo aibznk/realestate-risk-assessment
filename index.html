@@ -303,11 +303,121 @@ textarea { min-height: 120px; resize: vertical; }
   background: var(--bg-secondary);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
-  padding: 16px;
-  font-size: 13px;
-  line-height: 1.8;
-  white-space: pre-wrap;
+  padding: 20px;
+  font-size: 13.5px;
+  line-height: 1.7;
   word-break: break-word;
+  color: var(--text-primary);
+}
+.result-content h2 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 20px 0 10px 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--accent-blue);
+  color: var(--accent-blue);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.result-content h2:first-child { margin-top: 0; }
+.result-content h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 16px 0 8px 0;
+  color: var(--text-primary);
+}
+.result-content p {
+  margin: 6px 0;
+}
+.result-content ul, .result-content ol {
+  margin: 6px 0 6px 8px;
+  padding-left: 16px;
+}
+.result-content li {
+  margin: 4px 0;
+}
+.result-content li::marker {
+  color: var(--accent-blue);
+}
+.result-content strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.result-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.result-content thead th {
+  background: var(--accent-blue);
+  color: #fff;
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.result-content tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: top;
+}
+.result-content tbody tr:last-child td { border-bottom: none; }
+.result-content tbody tr:nth-child(even) {
+  background: rgba(0,0,0,0.02);
+}
+@media (prefers-color-scheme: dark) {
+  .result-content tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+  .result-content thead th { background: #1d4ed8; }
+}
+.result-content tbody tr:hover {
+  background: var(--accent-blue-bg);
+}
+.result-content .info-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 8px 0;
+  padding: 10px 14px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+}
+.result-content .info-grid .label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.result-content .info-grid .value {
+  color: var(--text-primary);
+}
+.result-content .highlight-box {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin: 8px 0;
+  border-left: 3px solid var(--accent-blue);
+  background: var(--accent-blue-bg);
+  font-size: 13px;
+}
+.result-content a {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+.result-content a:hover { text-decoration: underline; }
+.result-content hr {
+  border: none;
+  border-top: 1px solid var(--border-light);
+  margin: 14px 0;
+}
+.result-content .no-data {
+  text-align: center;
+  color: var(--text-tertiary);
+  padding: 24px 0;
+  font-style: italic;
 }
 
 /* ===== Risk Badges ===== */
@@ -410,10 +520,9 @@ textarea { min-height: 120px; resize: vertical; }
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
-  white-space: pre-wrap;
   word-break: break-word;
   font-size: 12px;
-  max-height: 200px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
@@ -748,23 +857,23 @@ async function startSearch() {
 
     if (rp.status === "fulfilled") {
       realPriceResult = rp.value;
-      document.getElementById("content-realprice").textContent = rp.value;
+      document.getElementById("content-realprice").innerHTML = formatResultHtml(rp.value);
       const el = document.getElementById("result-realprice");
       el.classList.add("show");
       el.classList.add("fade-in");
     } else {
-      document.getElementById("content-realprice").textContent = "查詢失敗：" + rp.reason?.message;
+      document.getElementById("content-realprice").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(rp.reason?.message)}</p>`;
       document.getElementById("result-realprice").classList.add("show");
     }
 
     if (au.status === "fulfilled") {
       auctionResult = au.value;
-      document.getElementById("content-auction").textContent = au.value;
+      document.getElementById("content-auction").innerHTML = formatResultHtml(au.value);
       const el = document.getElementById("result-auction");
       el.classList.add("show");
       el.classList.add("fade-in");
     } else {
-      document.getElementById("content-auction").textContent = "查詢失敗：" + au.reason?.message;
+      document.getElementById("content-auction").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(au.reason?.message)}</p>`;
       document.getElementById("result-auction").classList.add("show");
     }
 
@@ -930,7 +1039,7 @@ async function analyzeTranscript() {
     }
 
     // Show analysis
-    document.getElementById("ts-content-analysis").textContent = cleanResult;
+    document.getElementById("ts-content-analysis").innerHTML = formatResultHtml(cleanResult);
     document.getElementById("ts-result-analysis").classList.add("show");
     document.getElementById("ts-result-analysis").classList.add("fade-in");
 
@@ -947,21 +1056,21 @@ async function analyzeTranscript() {
 
       if (rp.status === "fulfilled") {
         realPriceResult = rp.value;
-        document.getElementById("ts-content-realprice").textContent = rp.value;
+        document.getElementById("ts-content-realprice").innerHTML = formatResultHtml(rp.value);
         document.getElementById("ts-result-realprice").classList.add("show");
         document.getElementById("ts-result-realprice").classList.add("fade-in");
       } else {
-        document.getElementById("ts-content-realprice").textContent = "查詢失敗：" + rp.reason?.message;
+        document.getElementById("ts-content-realprice").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(rp.reason?.message)}</p>`;
         document.getElementById("ts-result-realprice").classList.add("show");
       }
 
       if (au.status === "fulfilled") {
         auctionResult = au.value;
-        document.getElementById("ts-content-auction").textContent = au.value;
+        document.getElementById("ts-content-auction").innerHTML = formatResultHtml(au.value);
         document.getElementById("ts-result-auction").classList.add("show");
         document.getElementById("ts-result-auction").classList.add("fade-in");
       } else {
-        document.getElementById("ts-content-auction").textContent = "查詢失敗：" + au.reason?.message;
+        document.getElementById("ts-content-auction").innerHTML = `<p class="no-data">查詢失敗：${escapeHtml(au.reason?.message)}</p>`;
         document.getElementById("ts-result-auction").classList.add("show");
       }
     } else {
@@ -1044,7 +1153,7 @@ function renderHistory() {
 
     let detailHtml = "";
     if (rec.transcript) {
-      detailHtml += `<div class="section-label">📊 謄本分析</div><div class="section-content">${escapeHtml(rec.transcript)}</div>`;
+      detailHtml += `<div class="section-label">📊 謄本分析</div><div class="section-content result-content">${formatResultHtml(rec.transcript)}</div>`;
     }
     if (rec.risks && rec.risks.length > 0) {
       const badges = rec.risks.map(r => {
@@ -1054,10 +1163,10 @@ function renderHistory() {
       detailHtml += `<div class="section-label">⚠️ 風險標籤</div><div class="risk-badges">${badges}</div>`;
     }
     if (rec.realPrice) {
-      detailHtml += `<div class="section-label">🏷️ 實價登錄</div><div class="section-content">${escapeHtml(rec.realPrice)}</div>`;
+      detailHtml += `<div class="section-label">🏷️ 實價登錄</div><div class="section-content result-content">${formatResultHtml(rec.realPrice)}</div>`;
     }
     if (rec.auction) {
-      detailHtml += `<div class="section-label">⚖️ 法拍資訊</div><div class="section-content">${escapeHtml(rec.auction)}</div>`;
+      detailHtml += `<div class="section-label">⚖️ 法拍資訊</div><div class="section-content result-content">${formatResultHtml(rec.auction)}</div>`;
     }
 
     return `<div class="history-item" onclick="this.classList.toggle('expanded')">
@@ -1079,6 +1188,100 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str || "";
   return div.innerHTML;
+}
+
+// ===== Markdown-like to HTML formatter =====
+function formatResultHtml(text) {
+  if (!text) return '<p class="no-data">暫無資料</p>';
+  const lines = text.split("\n");
+  let html = "";
+  let inTable = false;
+  let inList = false;
+  let listType = "";
+
+  function closePending() {
+    if (inTable) { html += "</tbody></table>"; inTable = false; }
+    if (inList) { html += listType === "ol" ? "</ol>" : "</ul>"; inList = false; }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed) { closePending(); continue; }
+
+    // Table: lines with |
+    if (trimmed.includes("|") && trimmed.startsWith("|")) {
+      const cells = trimmed.split("|").filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map(c => c.trim());
+      // Skip separator lines like |---|---|
+      if (cells.every(c => /^[-:]+$/.test(c))) continue;
+      if (!inTable) {
+        closePending();
+        html += '<table><thead><tr>' + cells.map(c => `<th>${escapeHtml(c)}</th>`).join("") + '</tr></thead><tbody>';
+        inTable = true;
+      } else {
+        html += '<tr>' + cells.map(c => `<td>${inlineFormat(c)}</td>`).join("") + '</tr>';
+      }
+      continue;
+    }
+
+    if (inTable) { html += "</tbody></table>"; inTable = false; }
+
+    // Headings
+    if (trimmed.startsWith("## ")) {
+      closePending();
+      html += `<h2>${inlineFormat(trimmed.slice(3))}</h2>`;
+      continue;
+    }
+    if (trimmed.startsWith("### ")) {
+      closePending();
+      html += `<h3>${inlineFormat(trimmed.slice(4))}</h3>`;
+      continue;
+    }
+    if (trimmed.startsWith("# ")) {
+      closePending();
+      html += `<h2>${inlineFormat(trimmed.slice(2))}</h2>`;
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      closePending();
+      html += "<hr>";
+      continue;
+    }
+
+    // Unordered list
+    if (/^[-*+]\s/.test(trimmed)) {
+      if (!inList || listType !== "ul") { closePending(); html += "<ul>"; inList = true; listType = "ul"; }
+      html += `<li>${inlineFormat(trimmed.replace(/^[-*+]\s/, ""))}</li>`;
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+[.)]\s/.test(trimmed)) {
+      if (!inList || listType !== "ol") { closePending(); html += "<ol>"; inList = true; listType = "ol"; }
+      html += `<li>${inlineFormat(trimmed.replace(/^\d+[.)]\s/, ""))}</li>`;
+      continue;
+    }
+
+    // Normal paragraph
+    closePending();
+    html += `<p>${inlineFormat(trimmed)}</p>`;
+  }
+  closePending();
+  return html || '<p class="no-data">暫無資料</p>';
+}
+
+function inlineFormat(text) {
+  let s = escapeHtml(text);
+  // Bold: **text** or __text__
+  s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  // Italic: *text* or _text_ (but not inside words with underscores)
+  s = s.replace(/(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)/g, "<em>$1</em>");
+  // Inline code: `text`
+  s = s.replace(/`(.+?)`/g, '<code style="background:var(--border-light);padding:1px 4px;border-radius:3px;font-size:12px">$1</code>');
+  return s;
 }
 
 function clearHistory() {
