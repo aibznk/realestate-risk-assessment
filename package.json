@@ -1,0 +1,12 @@
+{
+  "name": "realestate-risk-assessment",
+  "version": "1.0.0",
+  "description": "台灣不動產風險評估系統",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
