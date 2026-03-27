@@ -785,7 +785,7 @@ async function callClaudeRaw(systemPrompt, userContent, retries = 2, taskType = 
           max_tokens: maxTokens,
           system: systemPrompt,
           messages: [{ role: "user", content: userContent }],
-          tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3, user_location: { country: "TW", timezone: "Asia/Taipei" } }]
+          tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3, user_location: { type: "approximate", country: "TW", timezone: "Asia/Taipei" } }]
         })
       });
       clearTimeout(timeoutId);
